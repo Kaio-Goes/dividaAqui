@@ -13,6 +13,7 @@ class LoginFormPanel extends StatefulWidget {
 }
 
 class _LoginFormPanelState extends State<LoginFormPanel> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
@@ -38,12 +39,9 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
   }
 
   Future<void> _signInWithEmail() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      _showError('Preencha email e senha.');
-      return;
-    }
     setState(() => _loading = true);
     try {
       await _authService.signInWithEmail(email, password);
@@ -101,8 +99,11 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
         color: Colors.white,
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(28, 48, 28, 24),
-        child: SingleChildScrollView(
-          child: Column(
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -130,6 +131,15 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
                 hintText: 'demo@email.com',
                 prefixIcon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  final v = value?.trim() ?? '';
+                  if (v.isEmpty) return 'Informe o email.';
+                  if (!v.contains('@')) return 'Email deve conter @.';
+                  if (!RegExp(r'\.[a-zA-Z]{2,}$').hasMatch(v)) {
+                    return 'Email deve conter um domínio válido (ex: .com).';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
 
@@ -139,6 +149,11 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
                 hintText: 'digite sua senha',
                 prefixIcon: Icons.lock_outline,
                 obscureText: _obscurePassword,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Informe a senha.';
+                  if (value.length < 6) return 'A senha deve ter pelo menos 6 caracteres.';
+                  return null;
+                },
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword
@@ -239,6 +254,7 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

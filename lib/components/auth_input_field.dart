@@ -9,6 +9,7 @@ class AuthInputField extends StatelessWidget {
   final bool obscureText;
   final Widget? suffixIcon;
   final TextInputType keyboardType;
+  final String? Function(String?)? validator;
 
   const AuthInputField({
     super.key,
@@ -19,6 +20,7 @@ class AuthInputField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.keyboardType = TextInputType.text,
+    this.validator,
   });
 
   @override
@@ -35,10 +37,11 @@ class AuthInputField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          validator: validator,
           style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
           decoration: InputDecoration(
             hintText: hintText,
@@ -56,6 +59,14 @@ class AuthInputField extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: appPrimary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.redAccent),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
           ),
         ),
