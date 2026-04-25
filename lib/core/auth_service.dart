@@ -50,6 +50,24 @@ class AuthService {
     return _auth.sendPasswordResetEmail(email: email);
   }
 
+  /// Atualiza nome e data de nascimento do usuário no Firestore.
+  Future<void> updateUserProfile({
+    required String uid,
+    required String name,
+    required String birthDate,
+  }) async {
+    await _db.collection('users').doc(uid).update({
+      'name': name,
+      'birthDate': birthDate,
+    });
+  }
+
+  /// Busca todos os usuários (apenas para admin role 0).
+  Future<List<UserModel>> fetchAllUsers() async {
+    final snapshot = await _db.collection('users').get();
+    return snapshot.docs.map((doc) => UserModel.fromMap(doc.data())).toList();
+  }
+
   Future<void> signOut() => _auth.signOut();
 
   User? get currentUser => _auth.currentUser;

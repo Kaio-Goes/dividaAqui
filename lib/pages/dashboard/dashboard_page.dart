@@ -1,6 +1,9 @@
 import 'package:divida_aqui/core/app_colors.dart';
 import 'package:divida_aqui/core/auth_service.dart';
+import 'package:divida_aqui/core/user_model.dart';
+import 'package:divida_aqui/pages/admin/admin_users_page.dart';
 import 'package:divida_aqui/pages/auth/login_page.dart';
+import 'package:divida_aqui/pages/profile/profile_page.dart';
 import 'package:flutter/material.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -12,6 +15,31 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final _authService = AuthService();
+  UserModel? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _authService.fetchCurrentUserProfile();
+    if (mounted) setState(() => _currentUser = user);
+  }
+
+  void _navigateToProfile() {
+    if (_currentUser == null) return;
+    if (_currentUser!.role == 0) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AdminUsersPage()),
+      );
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ProfilePage()),
+      );
+    }
+  }
 
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
@@ -68,6 +96,11 @@ class _DashboardPageState extends State<DashboardPage> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Perfil',
+            onPressed: _navigateToProfile,
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair',
