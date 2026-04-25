@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const  LoadingPage(),
+      home: const  LoginPage(),
       debugShowCheckedModeBanner: false,
     );
   }
