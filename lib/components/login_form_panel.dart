@@ -122,9 +122,8 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
                       if (!(dialogFormKey.currentState?.validate() ?? false)) return;
                       setDialogState(() => sending = true);
                       try {
-                        await _authService.sendPasswordResetEmail(
-                          dialogEmailController.text.trim(),
-                        );
+                        final email = dialogEmailController.text.trim();
+                        await _authService.sendPasswordResetEmail(email);
                         if (ctx.mounted) Navigator.of(ctx).pop();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -165,7 +164,7 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
   String _firebaseMessage(String code) {
     switch (code) {
       case 'user-not-found':
-        return 'Usuário não encontrado.';
+        return 'Nenhuma conta encontrada com este email.';
       case 'wrong-password':
         return 'Senha incorreta.';
       case 'invalid-email':
