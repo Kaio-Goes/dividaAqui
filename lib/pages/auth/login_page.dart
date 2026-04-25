@@ -1,44 +1,42 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:divida_aqui/core/app_colors.dart';
+import 'package:divida_aqui/components/login_form_panel.dart';
+import 'package:divida_aqui/components/topo_background.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color.fromARGB(255, 239, 240, 240),
-              const Color.fromARGB(255, 123, 212, 237),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(child: Center(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset('assets/images/divida_logo.png', width: 320, height: 320),
-                  const SizedBox(height: 20),
-
-                ],
+      backgroundColor: appPrimary,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: TopoBackground()),
+          Column(
+            children: [
+              SizedBox(height: 48),
+              Expanded(
+                flex: 2,
+                child: SafeArea(
+                  bottom: false,
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/divida_logo_fundo.png',
+                      width: 330,
+                      height: 330,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const Expanded(
+                flex: 3,
+                child: LoginFormPanel(),
+              ),
+            ],
           ),
-        )),
+        ],
       ),
-
     );
   }
 }
