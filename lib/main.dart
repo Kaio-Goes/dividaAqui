@@ -1,4 +1,6 @@
+import 'package:divida_aqui/pages/auth/login_page.dart';
 import 'package:divida_aqui/pages/dashboard/dashboard_page.dart';
+import 'package:divida_aqui/pages/loading/loading_page.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -14,8 +16,10 @@ class MyApp extends StatelessWidget {
       title: 'Dívida Aqui',
       theme: ThemeData(
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const DashboardPage(),
+      home: const  LoadingPage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
