@@ -60,25 +60,106 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
   }
 
   Future<void> _forgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      _showError('Digite seu email para redefinir a senha.');
-      return;
-    }
-    try {
-      await _authService.sendPasswordResetEmail(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email de redefinição enviado!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
+    final dialogEmailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final dialogFormKey = GlobalKey<FormState>();
+    bool sending = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Recuperar senha',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      _showError(_firebaseMessage(e.code));
-    }
+          content: Form(
+            key: dialogFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Informe seu email e enviaremos um link para redefinir sua senha.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: dialogEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: appPrimary, width: 1.5),
+                    ),
+                  ),
+                  validator: (value) {
+                    final v = value?.trim() ?? '';
+                    if (v.isEmpty) return 'Informe o email.';
+                    if (!v.contains('@')) return 'Email inválido.';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: sending
+                  ? null
+                  : () async {
+                      if (!(dialogFormKey.currentState?.validate() ?? false)) return;
+                      setDialogState(() => sending = true);
+                      try {
+                        await _authService.sendPasswordResetEmail(
+                          dialogEmailController.text.trim(),
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email de recuperação enviado! Verifique sua caixa de entrada.'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } on FirebaseAuthException catch (e) {
+                        setDialogState(() => sending = false);
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        _showError(_firebaseMessage(e.code));
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appPrimary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: sending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Enviar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _firebaseMessage(String code) {
