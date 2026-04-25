@@ -78,7 +78,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: _users.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final user = _users[index];
                     final isAdmin = user.role == 0;

@@ -45,6 +45,11 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
       config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule' if config.name == 'Release'
+      # Habilita permissão de localização para o permission_handler
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_LOCATION=1',
+      ]
     end
   end
 end
