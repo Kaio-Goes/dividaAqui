@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:divida_aqui/core/app_colors.dart';
+import 'package:divida_aqui/core/auth_service.dart';
 import 'package:divida_aqui/components/auth_input_field.dart';
 import 'package:divida_aqui/components/topo_background.dart';
 
@@ -13,14 +15,82 @@ class LoginFormPanel extends StatefulWidget {
 class _LoginFormPanelState extends State<LoginFormPanel> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _rememberMe = false;
+  final _authService = AuthService();
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _signInWithEmail() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Preencha email e senha.');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await _authService.signInWithEmail(email, password);
+    } on FirebaseAuthException catch (e) {
+      _showError(_firebaseMessage(e.code));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      _showError('Digite seu email para redefinir a senha.');
+      return;
+    }
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email de redefinição enviado!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      _showError(_firebaseMessage(e.code));
+    }
+  }
+
+  String _firebaseMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'Usuário não encontrado.';
+      case 'wrong-password':
+        return 'Senha incorreta.';
+      case 'invalid-email':
+        return 'Email inválido.';
+      case 'user-disabled':
+        return 'Usuário desativado.';
+      case 'too-many-requests':
+        return 'Muitas tentativas. Tente novamente mais tarde.';
+      default:
+        return 'Erro ao autenticar. Tente novamente.';
+    }
   }
 
   @override
@@ -84,32 +154,10 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
               const SizedBox(height: 14),
 
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Checkbox(
-                          value: _rememberMe,
-                          activeColor: appPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          onChanged: (v) =>
-                              setState(() => _rememberMe = v!),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Lembrar-me',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
-                      ),
-                    ],
-                  ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: _forgotPassword,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -128,11 +176,12 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
               ),
               const SizedBox(height: 28),
 
+              // Botão Entrar
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _loading ? null : _signInWithEmail,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: appPrimary,
                     foregroundColor: Colors.white,
@@ -141,14 +190,23 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: const Text(
-                    'Entrar',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Entrar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),

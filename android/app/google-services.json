@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "193408727238",
+    "project_id": "divida-aqui",
+    "storage_bucket": "divida-aqui.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:193408727238:android:23579446fb256924a8bfc7",
+        "android_client_info": {
+          "package_name": "com.example.divida_aqui"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAps2MA6h6dskEDsElrBdGEPACragYm4uM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
