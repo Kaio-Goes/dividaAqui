@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:divida_aqui/core/app_colors.dart';
 import 'package:divida_aqui/core/auth_service.dart';
@@ -52,8 +53,10 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _loading = true);
     try {
       await _authService.signUpWithEmail(
-        _emailController.text.trim(),
-        _passwordController.text,
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+        birthDate: _birthController.text,
       );
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -63,6 +66,10 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseMessage(e.code));
+    } on FirebaseException catch (e) {
+      _showError('Erro ao salvar perfil: ${e.message}');
+    } catch (e) {
+      _showError('Erro inesperado. Tente novamente.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -83,23 +90,57 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    DateTime tempDate = DateTime(now.year - 18, now.month, now.day);
+
+    await showCupertinoModalPopup<void>(
       context: context,
-      initialDate: DateTime(now.year - 18, now.month, now.day),
-      firstDate: DateTime(1900),
-      lastDate: DateTime(now.year - 10, now.month, now.day),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: appPrimary),
+      builder: (_) => Container(
+        height: 320,
+        color: Colors.white,
+        child: Column(
+          children: [
+            // Cabeçalho com botões
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE0E0E0)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    child: const Text('Cancelar',
+                        style: TextStyle(color: Colors.grey)),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  CupertinoButton(
+                    child: Text('Confirmar',
+                        style: TextStyle(color: appPrimary)),
+                    onPressed: () {
+                      _birthController.text =
+                          '${tempDate.day.toString().padLeft(2, '0')}/${tempDate.month.toString().padLeft(2, '0')}/${tempDate.year}';
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Picker
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: tempDate,
+                minimumDate: DateTime(1900),
+                maximumDate: DateTime(now.year - 10, now.month, now.day),
+                onDateTimeChanged: (date) => tempDate = date,
+              ),
+            ),
+          ],
         ),
-        child: child!,
       ),
     );
-    if (picked != null) {
-      _birthController.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-      _formKey.currentState?.validate();
-    }
   }
 
   @override
@@ -149,7 +190,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     padding: const EdgeInsets.fromLTRB(28, 48, 28, 24),
                     child: Form(
                       key: _formKey,
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       child: SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,6 +272,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                   controller: _birthController,
                                   readOnly: true,
                                   onTap: _pickDate,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
                                       return 'Selecione a data de nascimento.';

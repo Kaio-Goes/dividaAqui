@@ -42,6 +42,7 @@ class AuthInputField extends StatelessWidget {
           obscureText: obscureText,
           keyboardType: keyboardType,
           validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
           decoration: InputDecoration(
             hintText: hintText,

@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:divida_aqui/core/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -9,8 +12,38 @@ class AuthService {
     return _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
-  Future<UserCredential> signUpWithEmail(String email, String password) {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password);
+  /// Cria o usuário no Firebase Auth e salva o perfil no Firestore com role 1.
+  Future<UserCredential> signUpWithEmail({
+    required String email,
+    required String password,
+    required String name,
+    required String birthDate,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final user = UserModel(
+      uid: credential.user!.uid,
+      name: name,
+      email: email,
+      birthDate: birthDate,
+      role: 1,
+    );
+
+    await _db.collection('users').doc(user.uid).set(user.toMap());
+
+    return credential;
+  }
+
+  /// Busca o perfil do usuário atual no Firestore.
+  Future<UserModel?> fetchCurrentUserProfile() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    final doc = await _db.collection('users').doc(uid).get();
+    if (!doc.exists) return null;
+    return UserModel.fromMap(doc.data()!);
   }
 
   Future<void> sendPasswordResetEmail(String email) {

@@ -108,7 +108,6 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
         padding: const EdgeInsets.fromLTRB(28, 48, 28, 24),
         child: Form(
           key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: SingleChildScrollView(
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
