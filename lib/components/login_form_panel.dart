@@ -4,6 +4,8 @@ import 'package:divida_aqui/core/app_colors.dart';
 import 'package:divida_aqui/core/auth_service.dart';
 import 'package:divida_aqui/components/auth_input_field.dart';
 import 'package:divida_aqui/components/topo_background.dart';
+import 'package:divida_aqui/pages/dashboard/dashboard_page.dart';
+import 'package:divida_aqui/pages/auth/register_page.dart';
 
 class LoginFormPanel extends StatefulWidget {
   const LoginFormPanel({super.key});
@@ -45,6 +47,11 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
     setState(() => _loading = true);
     try {
       await _authService.signInWithEmail(email, password);
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DashboardPage()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseMessage(e.code));
     } finally {
@@ -237,7 +244,11 @@ class _LoginFormPanelState extends State<LoginFormPanel> {
                     children: [
                       WidgetSpan(
                         child: GestureDetector(
-                          onTap: () {},
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterPage(),
+                            ),
+                          ),
                           child: const Text(
                             'Cadastre-se',
                             style: TextStyle(
