@@ -1,4 +1,4 @@
-import 'package:divida_aqui/pages/auth/login_page.dart';
+import 'package:divida_aqui/pages/loading/loading_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
       supportedLocales: const [
         Locale('pt', 'BR'),
       ],
-      home: const LoginPage(),
+      home: const LoadingPage(),
       debugShowCheckedModeBanner: false,
     );
   }
