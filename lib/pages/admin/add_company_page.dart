@@ -37,7 +37,8 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
     _latCtrl = TextEditingController(text: c?.lat.toString() ?? '');
     _lngCtrl = TextEditingController(text: c?.lng.toString() ?? '');
     _scoreCtrl = TextEditingController(text: c?.score.toString() ?? '');
-    _debtCtrl = TextEditingController(text: c?.debtValue.toString() ?? '');
+    _debtCtrl = TextEditingController(
+        text: c != null ? _formatCurrencyValue(c.debtValue) : '');
     _riskLevel = c?.riskLevel ?? 1;
   }
 
@@ -59,7 +60,12 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
       final lat = double.parse(_latCtrl.text.replaceAll(',', '.'));
       final lng = double.parse(_lngCtrl.text.replaceAll(',', '.'));
       final score = double.parse(_scoreCtrl.text.replaceAll(',', '.'));
-      final debt = double.parse(_debtCtrl.text.replaceAll(',', '.'));
+      final debt = double.parse(
+        _debtCtrl.text
+            .replaceAll('R\$ ', '')
+            .replaceAll('.', '')
+            .replaceAll(',', '.'),
+      );
 
       if (_isEditing) {
         await _service.updateCompany(
@@ -118,45 +124,76 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
           children: [
-            _buildSection('Dados da empresa', [
+            // ── Dados da empresa ───────────────────────────────────────────
+            _sectionLabel('Dados da empresa'),
+            const SizedBox(height: 10),
+            _buildCard([
               _buildField(
                 controller: _nameCtrl,
                 label: 'Nome da empresa',
-                icon: Icons.business,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                hint: 'Ex: Empresa ABC Ltda',
+                icon: Icons.business_outlined,
+                autovalidate: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Informe o nome da empresa';
+                  }
+                  if (v.trim().length < 2) {
+                    return 'Nome muito curto (mín. 2 caracteres)';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildField(
                 controller: _sectorCtrl,
-                label: 'Setor',
+                label: 'Setor de atuação',
+                hint: 'Ex: Tecnologia, Varejo, Saúde…',
                 icon: Icons.category_outlined,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Informe o setor' : null,
+                autovalidate: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Informe o setor de atuação';
+                  }
+                  if (v.trim().length < 2) {
+                    return 'Setor muito curto (mín. 2 caracteres)';
+                  }
+                  return null;
+                },
               ),
             ]),
-            const SizedBox(height: 20),
-            _buildSection('Localização', [
+
+            const SizedBox(height: 24),
+
+            // ── Localização ────────────────────────────────────────────────
+            _sectionLabel('Localização'),
+            const SizedBox(height: 10),
+            _buildCard([
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: _buildField(
                       controller: _latCtrl,
                       label: 'Latitude',
-                      icon: Icons.location_on_outlined,
+                      hint: '-23.55052',
+                      icon: Icons.near_me_outlined,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                             RegExp(r'^-?\d*[,.]?\d*')),
                       ],
+                      autovalidate: true,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Obrigatório';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Obrigatório';
+                        }
                         final d = double.tryParse(v.replaceAll(',', '.'));
-                        if (d == null) return 'Inválido';
-                        if (d < -90 || d > 90) return '-90 a 90';
+                        if (d == null) return 'Valor inválido';
+                        if (d < -90 || d > 90) return 'Entre -90 e 90';
                         return null;
                       },
                     ),
@@ -166,18 +203,22 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
                     child: _buildField(
                       controller: _lngCtrl,
                       label: 'Longitude',
-                      icon: Icons.location_on_outlined,
+                      hint: '-46.63330',
+                      icon: Icons.near_me_outlined,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                             RegExp(r'^-?\d*[,.]?\d*')),
                       ],
+                      autovalidate: true,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Obrigatório';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Obrigatório';
+                        }
                         final d = double.tryParse(v.replaceAll(',', '.'));
-                        if (d == null) return 'Inválido';
-                        if (d < -180 || d > 180) return '-180 a 180';
+                        if (d == null) return 'Valor inválido';
+                        if (d < -180 || d > 180) return 'Entre -180 e 180';
                         return null;
                       },
                     ),
@@ -185,58 +226,66 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
                 ],
               ),
             ]),
-            const SizedBox(height: 20),
-            _buildSection('Avaliação', [
+
+            const SizedBox(height: 24),
+
+            // ── Avaliação ──────────────────────────────────────────────────
+            _sectionLabel('Avaliação de risco'),
+            const SizedBox(height: 10),
+            _buildCard([
               _buildRiskSelector(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildField(
                 controller: _scoreCtrl,
-                label: 'Score',
-                icon: Icons.bar_chart,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
+                label: 'Score de crédito',
+                hint: 'Ex: 750',
+                icon: Icons.bar_chart_rounded,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*[,.]?\d*')),
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*[,.]?\d*')),
                 ],
+                autovalidate: true,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Informe o score';
-                  if (double.tryParse(v.replaceAll(',', '.')) == null) {
-                    return 'Valor inválido';
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Informe o score';
                   }
+                  final d = double.tryParse(v.replaceAll(',', '.'));
+                  if (d == null) return 'Valor inválido';
+                  if (d < 0) return 'Score não pode ser negativo';
+                  if (d > 1000) return 'Score máximo é 1000';
                   return null;
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildField(
                 controller: _debtCtrl,
-                label: 'Valor da dívida (R\$)',
-                icon: Icons.attach_money,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*[,.]?\d*')),
-                ],
+                label: 'Valor da dívida',
+                hint: 'R\$ 0,00',
+                icon: Icons.attach_money_rounded,
+                keyboardType: TextInputType.number,
+                inputFormatters: [_CurrencyInputFormatter()],
+                autovalidate: true,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
+                  if (v == null || v.trim().isEmpty || v == 'R\$ 0,00') {
                     return 'Informe o valor da dívida';
-                  }
-                  if (double.tryParse(v.replaceAll(',', '.')) == null) {
-                    return 'Valor inválido';
                   }
                   return null;
                 },
               ),
             ]),
+
             const SizedBox(height: 32),
+
             SizedBox(
-              height: 50,
+              height: 52,
               child: ElevatedButton(
                 onPressed: _saving ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: appPrimary,
                   foregroundColor: Colors.white,
+                  elevation: 2,
+                  shadowColor: appPrimary.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
@@ -260,66 +309,107 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
     );
   }
 
-  Widget _buildSection(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-              letterSpacing: 0.5),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+  // ── Helpers de layout ──────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      text.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Colors.grey,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
+  Widget _buildCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
-        ),
-      ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 
   Widget _buildField({
     required TextEditingController controller,
     required String label,
+    required String hint,
     required IconData icon,
+    bool autovalidate = false,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: appPrimary, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: appPrimary, width: 2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF333333),
+          ),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          validator: validator,
+          autovalidateMode: autovalidate
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle:
+                const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+            prefixIcon: Icon(icon, color: Colors.grey, size: 20),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            filled: true,
+            fillColor: const Color(0xFFFAFAFA),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: appPrimary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.redAccent),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  static String _formatCurrencyValue(double value) {
+    final cents = (value * 100).round();
+    return _CurrencyInputFormatter._format(cents);
   }
 
   Widget _buildRiskSelector() {
@@ -373,6 +463,44 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
           }).toList(),
         ),
       ],
+    );
+  }
+}
+
+class _CurrencyInputFormatter extends TextInputFormatter {
+  static String _format(int cents) {
+    if (cents == 0) return 'R\$ 0,00';
+    final centsPart = (cents % 100).toString().padLeft(2, '0');
+    final reais = cents ~/ 100;
+    final reaisStr = _formatThousands(reais);
+    return 'R\$ $reaisStr,$centsPart';
+  }
+
+  static String _formatThousands(int n) {
+    final s = n.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(s[i]);
+    }
+    return buffer.toString();
+  }
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return newValue.copyWith(
+        text: '',
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+    final cents = int.tryParse(digits) ?? 0;
+    final formatted = _format(cents);
+    return newValue.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
