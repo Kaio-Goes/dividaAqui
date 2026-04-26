@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:divida_aqui/core/app_colors.dart';
 import 'package:divida_aqui/core/auth_service.dart';
 import 'package:divida_aqui/core/user_model.dart';
+import 'package:divida_aqui/pages/admin/admin_companies_page.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -56,6 +57,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.business_outlined),
+            tooltip: 'Empresas',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const AdminCompaniesPage()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar',
