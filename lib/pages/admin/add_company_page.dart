@@ -1,8 +1,10 @@
 import 'package:divida_aqui/core/app_colors.dart';
 import 'package:divida_aqui/core/company_model.dart';
 import 'package:divida_aqui/core/company_service.dart';
+import 'package:divida_aqui/pages/admin/map_location_picker_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class AddCompanyPage extends StatefulWidget {
   final CompanyModel? company;
@@ -171,6 +173,42 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
             _sectionLabel('Localização'),
             const SizedBox(height: 10),
             _buildCard([
+              // Botão de seleção no mapa
+              OutlinedButton.icon(
+                onPressed: _pickOnMap,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: appPrimary,
+                  side: const BorderSide(color: appPrimary),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  minimumSize: const Size(double.infinity, 0),
+                ),
+                icon: const Icon(Icons.map_outlined, size: 20),
+                label: const Text(
+                  'Selecionar no mapa',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ou insira manualmente',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF999999)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -405,6 +443,24 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _pickOnMap() async {
+    LatLng? initial;
+    final lat = double.tryParse(_latCtrl.text.replaceAll(',', '.'));
+    final lng = double.tryParse(_lngCtrl.text.replaceAll(',', '.'));
+    if (lat != null && lng != null) initial = LatLng(lat, lng);
+
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapLocationPickerPage(initial: initial),
+      ),
+    );
+    if (result != null) {
+      _latCtrl.text = result.latitude.toStringAsFixed(6);
+      _lngCtrl.text = result.longitude.toStringAsFixed(6);
+    }
   }
 
   static String _formatCurrencyValue(double value) {
