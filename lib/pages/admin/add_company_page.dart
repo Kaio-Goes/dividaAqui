@@ -20,24 +20,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
   final _service = CompanyService();
   bool _saving = false;
 
-  static const _sectors = [
-    'Agronegócio',
-    'Alimentação e Bebidas',
-    'Comércio',
-    'Construção Civil',
-    'Educação',
-    'Energia',
-    'Indústria',
-    'Imobiliário',
-    'Mineração',
-    'Saúde',
-    'Serviços Financeiros',
-    'Tecnologia',
-    'Telecomunicações',
-    'Transporte e Logística',
-    'Varejo',
-    'Outros',
-  ];
+  static const _sectors = kSectors;
 
   late final TextEditingController _nameCtrl;
   late final TextEditingController _cnpjCtrl;

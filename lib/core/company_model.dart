@@ -1,3 +1,22 @@
+const kSectors = [
+  'Agronegócio',
+  'Alimentação e Bebidas',
+  'Comércio',
+  'Construção Civil',
+  'Educação',
+  'Energia',
+  'Indústria',
+  'Imobiliário',
+  'Mineração',
+  'Saúde',
+  'Serviços Financeiros',
+  'Tecnologia',
+  'Telecomunicações',
+  'Transporte e Logística',
+  'Varejo',
+  'Outros',
+];
+
 class CompanyModel {
   final String id;
   final String name;

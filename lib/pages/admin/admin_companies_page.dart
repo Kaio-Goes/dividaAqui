@@ -15,6 +15,7 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
   final _service = CompanyService();
   final _searchCtrl = TextEditingController();
   int? _filterRisk;
+  String? _filterSector;
   String _searchText = '';
 
   // Lista mantida em estado local — stream atualiza sem reconstruir o TextField
@@ -39,6 +40,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
   List<CompanyModel> _applyFilter(List<CompanyModel> all) {
     return all.where((c) {
       final matchRisk = _filterRisk == null || c.riskLevel == _filterRisk;
+      final matchSector =
+          _filterSector == null || c.sector == _filterSector;
       final q = _searchText;
       final matchSearch = q.isEmpty ||
           c.name.toLowerCase().contains(q) ||
@@ -49,7 +52,7 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
           c.debtValue.toString().contains(q) ||
           c.lat.toString().contains(q) ||
           c.lng.toString().contains(q);
-      return matchRisk && matchSearch;
+      return matchRisk && matchSector && matchSearch;
     }).toList();
   }
 
@@ -204,6 +207,40 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
     );
   }
 
+  Widget _sectorChip({
+    required String label,
+    required String? value,
+  }) {
+    final selected = _filterSector == value;
+    return GestureDetector(
+      onTap: () => setState(() =>
+          _filterSector = (_filterSector == value) ? null : value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? appPrimary.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? appPrimary : const Color(0xFFDDDDDD),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight:
+                selected ? FontWeight.w700 : FontWeight.normal,
+            color: selected ? appPrimary : const Color(0xFF777777),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final companies = _applyFilter(_allCompanies);
@@ -263,6 +300,7 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                // Linha de risco
                 Row(
                   children: [
                     _filterChip(label: 'Todos', value: null),
@@ -288,6 +326,23 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                           fontSize: 12, color: Color(0xFF999999)),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                // Linha de setor (scroll horizontal)
+                SizedBox(
+                  height: 34,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _sectorChip(label: 'Todos', value: null),
+                      ...kSectors.map(
+                        (s) => Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: _sectorChip(label: s, value: s),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

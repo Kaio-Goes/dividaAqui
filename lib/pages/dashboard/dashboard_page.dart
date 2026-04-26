@@ -41,6 +41,8 @@ class _DashboardPageState extends State<DashboardPage>
 
   // filtro de risco
   int? _filterRisk;
+  // filtro de setor
+  String? _filterSector;
 
   // pesquisa flutuante
   final _searchCtrl = TextEditingController();
@@ -103,14 +105,16 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Set<Marker> _filterMarkers(Set<Marker> source) {
-    if (_filterRisk == null) return source;
-    final ids = _allCompanies
-        .where((c) => c.riskLevel == _filterRisk)
-        .map((c) => 'company_${c.id}')
-        .toSet();
-    return source
-        .where((m) => ids.contains(m.markerId.value))
-        .toSet();
+    var companies = _allCompanies;
+    if (_filterRisk != null) {
+      companies = companies.where((c) => c.riskLevel == _filterRisk).toList();
+    }
+    if (_filterSector != null) {
+      companies = companies.where((c) => c.sector == _filterSector).toList();
+    }
+    final ids = companies.map((c) => 'company_${c.id}').toSet();
+    if (_filterRisk == null && _filterSector == null) return source;
+    return source.where((m) => ids.contains(m.markerId.value)).toSet();
   }
 
   void _setRiskFilter(int? risk) {
@@ -120,16 +124,34 @@ class _DashboardPageState extends State<DashboardPage>
     });
   }
 
+  void _setSectorFilter(String? sector) {
+    setState(() {
+      _filterSector = _filterSector == sector ? null : sector;
+      _companyMarkers = _filterMarkers(_allMarkers);
+    });
+  }
+
   List<CompanyModel> _searchResults() {
     if (_searchText.isEmpty) return [];
     final q = _searchText.toLowerCase();
-    final source =
-        _filterRisk == null ? _allCompanies : _allCompanies.where((c) => c.riskLevel == _filterRisk).toList();
-    return source
+    // dígitos puros digitados (para busca numérica na dívida)
+    final qDigits = q.replaceAll(RegExp(r'[^\d]'), '');
+    final source = _allCompanies
         .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            c.cnpj.contains(q) ||
-            _formatCnpj(c.cnpj).contains(q))
+            (_filterRisk == null || c.riskLevel == _filterRisk) &&
+            (_filterSector == null || c.sector == _filterSector))
+        .toList();
+    return source
+        .where((c) {
+          if (c.name.toLowerCase().contains(q)) return true;
+          if (c.cnpj.contains(q) || _formatCnpj(c.cnpj).contains(q)) return true;
+          // busca pelo valor da dívida: compara string numérica e formatada
+          final debtFormatted = _formatCurrency(c.debtValue).toLowerCase();
+          if (debtFormatted.contains(q)) return true;
+          if (qDigits.isNotEmpty &&
+              c.debtValue.toStringAsFixed(0).contains(qDigits)) return true;
+          return false;
+        })
         .take(6)
         .toList();
   }
@@ -541,6 +563,100 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
+  void _showSectorSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Filtrar por Setor',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // chip "Todos"
+                    _sectorChipSheet(
+                      label: 'Todos',
+                      selected: _filterSector == null,
+                      onTap: () {
+                        _setSectorFilter(null);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    ...kSectors.map((s) => _sectorChipSheet(
+                          label: s,
+                          selected: _filterSector == s,
+                          onTap: () {
+                            _setSectorFilter(s);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                  ],
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  Widget _sectorChipSheet({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? appPrimary
+              : appPrimary.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? appPrimary : appPrimary.withValues(alpha: 0.25),
+            width: 1.2,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            color: selected ? Colors.white : appPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _riskChip({
     required String label,
     required int? value,
@@ -779,6 +895,12 @@ class _DashboardPageState extends State<DashboardPage>
                                                 fontSize: 11,
                                                 color: Color(0xFF888888)),
                                           ),
+                                        Text(
+                                          _formatCurrency(c.debtValue),
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFFAAAAAA)),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -812,7 +934,7 @@ class _DashboardPageState extends State<DashboardPage>
             ),
           ),
 
-          // ── Chips de filtro de risco ────────────────────────────────
+          // ── Chips de filtro de risco + botão setor ──────────────────
           Positioned(
             bottom: 24,
             left: 16,
@@ -820,6 +942,67 @@ class _DashboardPageState extends State<DashboardPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Botão de filtro por setor
+                GestureDetector(
+                  onTap: _showSectorSheet,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _filterSector != null
+                          ? appPrimary
+                          : Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _filterSector != null
+                            ? appPrimary
+                            : Colors.white,
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.category_outlined,
+                          size: 14,
+                          color: _filterSector != null
+                              ? Colors.white
+                              : appPrimary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _filterSector ?? 'Setor',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _filterSector != null
+                                ? Colors.white
+                                : appPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.expand_more,
+                          size: 14,
+                          color: _filterSector != null
+                              ? Colors.white
+                              : appPrimary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Chips de risco
                 _riskChip(label: 'Todos', value: null),
                 const SizedBox(height: 6),
                 _riskChip(
