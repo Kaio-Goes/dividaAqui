@@ -321,7 +321,7 @@ class _DashboardPageState extends State<DashboardPage>
                         style: const TextStyle(
                             color: Colors.grey, fontSize: 13),
                       ),
-                      if (c.cnpj.isNotEmpty) ...[  
+                      if (c.cnpj.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           _formatCnpj(c.cnpj),
