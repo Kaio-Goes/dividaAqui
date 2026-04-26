@@ -14,14 +14,20 @@ class AdminCompaniesPage extends StatefulWidget {
 class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
   final _service = CompanyService();
   final _searchCtrl = TextEditingController();
-  int? _filterRisk; // null = todos
+  int? _filterRisk;
   String _searchText = '';
+
+  // Lista mantida em estado local — stream atualiza sem reconstruir o TextField
+  List<CompanyModel> _allCompanies = [];
 
   @override
   void initState() {
     super.initState();
     _searchCtrl.addListener(
         () => setState(() => _searchText = _searchCtrl.text.toLowerCase()));
+    _service.streamCompanies().listen((data) {
+      if (mounted) setState(() => _allCompanies = data);
+    });
   }
 
   @override
@@ -37,6 +43,7 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
       final matchSearch = q.isEmpty ||
           c.name.toLowerCase().contains(q) ||
           c.sector.toLowerCase().contains(q) ||
+          c.cnpj.contains(q) ||
           c.riskLabel.toLowerCase().contains(q) ||
           c.score.toString().contains(q) ||
           c.debtValue.toString().contains(q) ||
@@ -115,6 +122,12 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
     return 'R\$ $reaisStr,$centsPart';
   }
 
+  String _formatCnpj(String digits) {
+    final d = digits.replaceAll(RegExp(r'\D'), '');
+    if (d.length != 14) return digits;
+    return '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8, 12)}-${d.substring(12)}';
+  }
+
   Widget _metric({
     required IconData icon,
     required String label,
@@ -157,8 +170,44 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
     );
   }
 
+  Widget _filterChip({
+    required String label,
+    required int? value,
+    Color? color,
+  }) {
+    final selected = _filterRisk == value;
+    final chipColor = color ?? appPrimary;
+    return GestureDetector(
+      onTap: () => setState(() => _filterRisk = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? chipColor.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? chipColor : const Color(0xFFDDDDDD),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            color: selected ? chipColor : const Color(0xFF777777),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final companies = _applyFilter(_allCompanies);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
@@ -174,99 +223,82 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
         icon: const Icon(Icons.add),
         label: const Text('Nova empresa'),
       ),
-      body: StreamBuilder<List<CompanyModel>>(
-        stream: _service.streamCompanies(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child: CircularProgressIndicator(color: appPrimary));
-          }
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('Erro ao carregar empresas.',
-                  style: TextStyle(color: Colors.grey)),
-            );
-          }
-          final all = snapshot.data ?? [];
-          final companies = _applyFilter(all);
-
-          return Column(
-            children: [
-              // ── Barra de pesquisa + filtros ─────────────────────────
-              Container(
-                color: Colors.white,
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Column(
-                  children: [
-                    // Campo de busca
-                    TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Pesquisar por nome, setor, score…',
-                        hintStyle: const TextStyle(
-                            color: Color(0xFFAAAAAA), fontSize: 14),
-                        prefixIcon: const Icon(Icons.search,
-                            color: Colors.grey, size: 20),
-                        suffixIcon: _searchText.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.close,
-                                    color: Colors.grey, size: 18),
-                                onPressed: () => _searchCtrl.clear(),
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 16),
-                        filled: true,
-                        fillColor: const Color(0xFFF4F6F8),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE0E0E0)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: appPrimary, width: 1.5),
-                        ),
-                      ),
+      body: Column(
+        children: [
+          // ── Barra de pesquisa + filtros — fora de qualquer StreamBuilder ──
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Pesquisar por nome, CNPJ, setor, score…',
+                    hintStyle: const TextStyle(
+                        color: Color(0xFFAAAAAA), fontSize: 14),
+                    prefixIcon: const Icon(Icons.search,
+                        color: Colors.grey, size: 20),
+                    suffixIcon: _searchText.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close,
+                                color: Colors.grey, size: 18),
+                            onPressed: () => _searchCtrl.clear(),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10, horizontal: 16),
+                    filled: true,
+                    fillColor: const Color(0xFFF4F6F8),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0xFFE0E0E0)),
                     ),
-                    const SizedBox(height: 10),
-                    // Chips de filtro por risco
-                    Row(
-                      children: [
-                        _filterChip(label: 'Todos', value: null),
-                        const SizedBox(width: 8),
-                        _filterChip(
-                            label: 'Baixo',
-                            value: 1,
-                            color: const Color(0xFF4CAF50)),
-                        const SizedBox(width: 8),
-                        _filterChip(
-                            label: 'Médio',
-                            value: 2,
-                            color: const Color(0xFFFF9800)),
-                        const SizedBox(width: 8),
-                        _filterChip(
-                            label: 'Alto',
-                            value: 3,
-                            color: const Color(0xFFF44336)),
-                        const Spacer(),
-                        Text(
-                          '${companies.length} result${companies.length == 1 ? 'ado' : 'ados'}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF999999)),
-                        ),
-                      ],
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: appPrimary, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _filterChip(label: 'Todos', value: null),
+                    const SizedBox(width: 8),
+                    _filterChip(
+                        label: 'Baixo',
+                        value: 1,
+                        color: const Color(0xFF4CAF50)),
+                    const SizedBox(width: 8),
+                    _filterChip(
+                        label: 'Médio',
+                        value: 2,
+                        color: const Color(0xFFFF9800)),
+                    const SizedBox(width: 8),
+                    _filterChip(
+                        label: 'Alto',
+                        value: 3,
+                        color: const Color(0xFFF44336)),
+                    const Spacer(),
+                    Text(
+                      '${companies.length} result${companies.length == 1 ? 'ado' : 'ados'}',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF999999)),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          ),
 
-              // ── Lista ────────────────────────────────────────────────
-              Expanded(
-                child: companies.isEmpty
+          // ── Lista ────────────────────────────────────────────────────────
+          Expanded(
+            child: _allCompanies.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: appPrimary))
+                : companies.isEmpty
                     ? const Center(
                         child: Text(
                           'Nenhuma empresa encontrada.',
@@ -292,8 +324,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                   width: 1.2),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      Colors.black.withValues(alpha: 0.05),
+                                  color: Colors.black
+                                      .withValues(alpha: 0.05),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
@@ -305,14 +337,15 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  // ── Cabeçalho ──────────────────────
+                                  // ── Cabeçalho ──────────────────
                                   Row(
                                     children: [
                                       Container(
                                         width: 42,
                                         height: 42,
                                         decoration: BoxDecoration(
-                                          color: color.withValues(alpha: 0.15),
+                                          color: color.withValues(
+                                              alpha: 0.15),
                                           borderRadius:
                                               BorderRadius.circular(10),
                                           border: Border.all(
@@ -334,7 +367,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                             Text(
                                               c.name,
                                               style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
+                                                fontWeight:
+                                                    FontWeight.w700,
                                                 fontSize: 15,
                                                 color: Color(0xFF1A1A1A),
                                               ),
@@ -344,18 +378,29 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                               c.sector,
                                               style: const TextStyle(
                                                   fontSize: 12,
-                                                  color: Color(0xFF888888)),
+                                                  color:
+                                                      Color(0xFF888888)),
                                             ),
+                                            if (c.cnpj.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                _formatCnpj(c.cnpj),
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Color(0xFFAAAAAA),
+                                                    letterSpacing: 0.3),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
                                       Container(
-                                        padding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: color.withValues(alpha: 0.12),
+                                          color: color.withValues(
+                                              alpha: 0.12),
                                           borderRadius:
                                               BorderRadius.circular(20),
                                           border: Border.all(
@@ -366,7 +411,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                           style: TextStyle(
                                               color: color,
                                               fontSize: 12,
-                                              fontWeight: FontWeight.bold),
+                                              fontWeight:
+                                                  FontWeight.bold),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
@@ -387,7 +433,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                               value: 'delete',
                                               child: Text('Excluir',
                                                   style: TextStyle(
-                                                      color: Colors.red))),
+                                                      color:
+                                                          Colors.red))),
                                         ],
                                       ),
                                     ],
@@ -399,14 +446,13 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                                       color: Color(0xFFEEEEEE)),
                                   const SizedBox(height: 12),
 
-                                  // ── Métricas ───────────────────────
+                                  // ── Métricas ────────────────────
                                   Row(
                                     children: [
                                       _metric(
                                         icon: Icons.bar_chart_rounded,
                                         label: 'Score',
-                                        value:
-                                            c.score.toStringAsFixed(0),
+                                        value: c.score.toStringAsFixed(0),
                                         color: appPrimary,
                                       ),
                                       const SizedBox(width: 8),
@@ -422,7 +468,7 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
 
                                   const SizedBox(height: 10),
 
-                                  // ── Coordenadas ────────────────────
+                                  // ── Coordenadas ─────────────────
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 8),
@@ -457,46 +503,8 @@ class _AdminCompaniesPageState extends State<AdminCompaniesPage> {
                           );
                         },
                       ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _filterChip({
-    required String label,
-    required int? value,
-    Color? color,
-  }) {
-    final selected = _filterRisk == value;
-    final chipColor = color ?? appPrimary;
-    return GestureDetector(
-      onTap: () => setState(() => _filterRisk = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? chipColor.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? chipColor : const Color(0xFFDDDDDD),
-            width: selected ? 1.5 : 1,
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight:
-                selected ? FontWeight.w700 : FontWeight.normal,
-            color: selected ? chipColor : const Color(0xFF777777),
-          ),
-        ),
+        ],
       ),
     );
   }

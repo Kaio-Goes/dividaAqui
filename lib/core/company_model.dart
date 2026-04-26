@@ -1,6 +1,7 @@
 class CompanyModel {
   final String id;
   final String name;
+  final String cnpj;
   final String sector;
   final double lat;
   final double lng;
@@ -11,6 +12,7 @@ class CompanyModel {
   const CompanyModel({
     required this.id,
     required this.name,
+    required this.cnpj,
     required this.sector,
     required this.lat,
     required this.lng,
@@ -34,6 +36,7 @@ class CompanyModel {
 
   Map<String, dynamic> toMap() => {
         'name': name,
+        'cnpj': cnpj,
         'sector': sector,
         'lat': lat,
         'lng': lng,
@@ -46,6 +49,7 @@ class CompanyModel {
       CompanyModel(
         id: id,
         name: map['name'] as String,
+        cnpj: (map['cnpj'] as String?) ?? '',
         sector: map['sector'] as String,
         lat: (map['lat'] as num).toDouble(),
         lng: (map['lng'] as num).toDouble(),
@@ -57,6 +61,7 @@ class CompanyModel {
   CompanyModel copyWith({
     String? id,
     String? name,
+    String? cnpj,
     String? sector,
     double? lat,
     double? lng,
@@ -67,6 +72,7 @@ class CompanyModel {
       CompanyModel(
         id: id ?? this.id,
         name: name ?? this.name,
+        cnpj: cnpj ?? this.cnpj,
         sector: sector ?? this.sector,
         lat: lat ?? this.lat,
         lng: lng ?? this.lng,

@@ -21,6 +21,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
   bool _saving = false;
 
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _cnpjCtrl;
   late final TextEditingController _sectorCtrl;
   late final TextEditingController _latCtrl;
   late final TextEditingController _lngCtrl;
@@ -35,6 +36,8 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
     super.initState();
     final c = widget.company;
     _nameCtrl = TextEditingController(text: c?.name ?? '');
+    _cnpjCtrl = TextEditingController(
+        text: c != null ? _CnpjInputFormatter.applyMask(c.cnpj) : '');
     _sectorCtrl = TextEditingController(text: c?.sector ?? '');
     _latCtrl = TextEditingController(text: c?.lat.toString() ?? '');
     _lngCtrl = TextEditingController(text: c?.lng.toString() ?? '');
@@ -47,6 +50,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _cnpjCtrl.dispose();
     _sectorCtrl.dispose();
     _latCtrl.dispose();
     _lngCtrl.dispose();
@@ -68,11 +72,13 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
             .replaceAll('.', '')
             .replaceAll(',', '.'),
       );
+      final cnpj = _cnpjCtrl.text.replaceAll(RegExp(r'[^\d]'), '');
 
       if (_isEditing) {
         await _service.updateCompany(
           widget.company!.copyWith(
             name: _nameCtrl.text.trim(),
+            cnpj: cnpj,
             sector: _sectorCtrl.text.trim(),
             lat: lat,
             lng: lng,
@@ -86,6 +92,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
           CompanyModel(
             id: '',
             name: _nameCtrl.text.trim(),
+            cnpj: cnpj,
             sector: _sectorCtrl.text.trim(),
             lat: lat,
             lng: lng,
@@ -144,6 +151,26 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
                   }
                   if (v.trim().length < 2) {
                     return 'Nome muito curto (mín. 2 caracteres)';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildField(
+                controller: _cnpjCtrl,
+                label: 'CNPJ',
+                hint: '00.000.000/0000-00',
+                icon: Icons.badge_outlined,
+                keyboardType: TextInputType.number,
+                inputFormatters: [_CnpjInputFormatter()],
+                autovalidate: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Informe o CNPJ';
+                  }
+                  final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+                  if (digits.length != 14) {
+                    return 'CNPJ deve ter 14 dígitos';
                   }
                   return null;
                 },
@@ -554,6 +581,32 @@ class _CurrencyInputFormatter extends TextInputFormatter {
     }
     final cents = int.tryParse(digits) ?? 0;
     final formatted = _format(cents);
+    return newValue.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class _CnpjInputFormatter extends TextInputFormatter {
+  // Aplica máscara 00.000.000/0000-00
+  static String applyMask(String digits) {
+    final d = digits.replaceAll(RegExp(r'\D'), '');
+    final buf = StringBuffer();
+    for (int i = 0; i < d.length && i < 14; i++) {
+      if (i == 2 || i == 5) buf.write('.');
+      if (i == 8) buf.write('/');
+      if (i == 12) buf.write('-');
+      buf.write(d[i]);
+    }
+    return buf.toString();
+  }
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final formatted = applyMask(digits);
     return newValue.copyWith(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

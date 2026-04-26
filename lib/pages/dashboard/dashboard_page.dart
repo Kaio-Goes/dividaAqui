@@ -41,7 +41,7 @@ class _DashboardPageState extends State<DashboardPage>
   static const _mapStyle = '''[
     {"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
     {"featureType":"poi.business","stylers":[{"visibility":"off"}]},
-    {"featureType":"transit","elementType":"labels.icon","stylers":[{"visibility":"off"}]}
+    {"featureType":"transit","elementType":" ","stylers":[{"visibility":"off"}]}
   ]''';
 
   // permissão: null = verificando, true = concedida, false = negada
@@ -279,6 +279,10 @@ class _DashboardPageState extends State<DashboardPage>
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 12),
+            if (c.cnpj.isNotEmpty) ...[
+              _detailRow(Icons.badge_outlined, 'CNPJ', _formatCnpj(c.cnpj)),
+              const SizedBox(height: 10),
+            ],
             _detailRow(Icons.bar_chart, 'Score', c.score.toStringAsFixed(2)),
             const SizedBox(height: 10),
             _detailRow(Icons.attach_money, 'Valor da dívida',
@@ -325,6 +329,12 @@ class _DashboardPageState extends State<DashboardPage>
       count++;
     }
     return 'R\$ ${buffer.toString().split('').reversed.join()},$decPart';
+  }
+
+  String _formatCnpj(String digits) {
+    final d = digits.replaceAll(RegExp(r'\D'), '');
+    if (d.length != 14) return digits;
+    return '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8, 12)}-${d.substring(12)}';
   }
 
   @override
