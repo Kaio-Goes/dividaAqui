@@ -34,9 +34,15 @@ class _DashboardPageState extends State<DashboardPage>
     target: LatLng(-14.235, -51.9253),
     zoom: 4,
   );
-  Marker? _myMarker;
   Set<Marker> _companyMarkers = {};
   bool _mapLoading = false;
+
+  // Estilo do mapa: oculta labels/ícones de POIs do Google
+  static const _mapStyle = '''[
+    {"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
+    {"featureType":"poi.business","stylers":[{"visibility":"off"}]},
+    {"featureType":"transit","elementType":"labels.icon","stylers":[{"visibility":"off"}]}
+  ]''';
 
   // permissão: null = verificando, true = concedida, false = negada
   bool? _locationGranted;
@@ -67,7 +73,7 @@ class _DashboardPageState extends State<DashboardPage>
         _companyService.streamCompanies().listen((companies) async {
       final newMarkers = <Marker>{};
       for (final c in companies) {
-        final icon = await _buildMarkerIcon(c.name, c.riskLevel);
+        final icon = await _buildMarkerIcon(c);
         newMarkers.add(Marker(
           markerId: MarkerId('company_${c.id}'),
           position: LatLng(c.lat, c.lng),
@@ -92,18 +98,24 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
-  Future<BitmapDescriptor> _buildMarkerIcon(String name, int riskLevel) async {
-    final color = _riskColor(riskLevel);
-    const double pixelRatio = 2.5;
-    const double fontSize = 12 * pixelRatio;
-    const double hPad = 8 * pixelRatio;
-    const double vPad = 5 * pixelRatio;
-    const double pointerH = 8 * pixelRatio;
-    const double cornerR = 6 * pixelRatio;
-    const double minW = 60 * pixelRatio;
-    const double maxW = 160 * pixelRatio;
+  Future<BitmapDescriptor> _buildMarkerIcon(CompanyModel company) async {
+    final color = _riskColor(company.riskLevel);
+    final name = company.name;
+    final subLabel =
+        '${company.riskLabel}  \u2022  Score ${company.score.toStringAsFixed(0)}';
 
-    final textPainter = TextPainter(
+    const double px = 2.5;
+    const double fontSize = 14 * px;
+    const double subFontSize = 12 * px;
+    const double hPad = 13 * px;
+    const double vPad = 8 * px;
+    const double lineGap = 4 * px;
+    const double pointerH = 9 * px;
+    const double cornerR = 8 * px;
+    const double maxW = 200 * px;
+    const double minInner = 70 * px;
+
+    final namePainter = TextPainter(
       text: TextSpan(
         text: name,
         style: const TextStyle(
@@ -117,8 +129,26 @@ class _DashboardPageState extends State<DashboardPage>
       ellipsis: '…',
     )..layout(maxWidth: maxW - hPad * 2);
 
-    final w = (textPainter.width + hPad * 2).clamp(minW, maxW);
-    final textH = textPainter.height + vPad * 2;
+    final subPainter = TextPainter(
+      text: TextSpan(
+        text: subLabel,
+        style: TextStyle(
+          fontSize: subFontSize,
+          fontWeight: FontWeight.w500,
+          color: Colors.white.withValues(alpha: 0.92),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: maxW - hPad * 2);
+
+    final innerW = [namePainter.width, subPainter.width, minInner]
+        .reduce((a, b) => a > b ? a : b)
+        .clamp(minInner, maxW - hPad * 2);
+    final w = innerW + hPad * 2;
+    final textH =
+        vPad + namePainter.height + lineGap + subPainter.height + vPad;
     final totalH = textH + pointerH;
 
     final recorder = ui.PictureRecorder();
@@ -132,7 +162,7 @@ class _DashboardPageState extends State<DashboardPage>
       ),
       Paint()
         ..color = Colors.black.withValues(alpha: 0.25)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
     // background
@@ -144,18 +174,30 @@ class _DashboardPageState extends State<DashboardPage>
       Paint()..color = color,
     );
 
-    // pointer triangle
+    // faixa escura na parte do sub-label
+    final subStripH = subPainter.height + vPad;
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(0, textH - subStripH, w, subStripH),
+        bottomLeft: const Radius.circular(cornerR),
+        bottomRight: const Radius.circular(cornerR),
+      ),
+      Paint()..color = Colors.black.withValues(alpha: 0.18),
+    );
+
+    // pointer
     canvas.drawPath(
       Path()
-        ..moveTo(w / 2 - 6 * pixelRatio, textH)
-        ..lineTo(w / 2 + 6 * pixelRatio, textH)
+        ..moveTo(w / 2 - 7 * px, textH)
+        ..lineTo(w / 2 + 7 * px, textH)
         ..lineTo(w / 2, totalH)
         ..close(),
       Paint()..color = color,
     );
 
-    // text label
-    textPainter.paint(canvas, Offset(hPad, vPad));
+    // textos
+    namePainter.paint(canvas, Offset(hPad, vPad));
+    subPainter.paint(canvas, Offset(hPad, vPad + namePainter.height + lineGap));
 
     final picture = recorder.endRecording();
     final img = await picture.toImage(w.ceil() + 4, totalH.ceil() + 4);
@@ -163,7 +205,7 @@ class _DashboardPageState extends State<DashboardPage>
 
     return BitmapDescriptor.fromBytes(
       bytes!.buffer.asUint8List(),
-      size: Size(w / pixelRatio, totalH / pixelRatio),
+      size: Size(w / px, totalH / px),
     );
   }
 
@@ -340,15 +382,7 @@ class _DashboardPageState extends State<DashboardPage>
           CameraPosition(target: latLng, zoom: 15.5),
         ),
       );
-      if (mounted) {
-        setState(() {
-          _myMarker = Marker(
-            markerId: const MarkerId('current'),
-            position: latLng,
-            infoWindow: const InfoWindow(title: 'Você está aqui'),
-          );
-        });
-      }
+      if (mounted) setState(() {});
     } catch (_) {
       // emulador sem GPS — apenas mantém posição inicial
     } finally {
@@ -474,10 +508,10 @@ class _DashboardPageState extends State<DashboardPage>
             zoomControlsEnabled: false,
             markers: {
               ..._companyMarkers,
-              if (_myMarker != null) _myMarker!,
             },
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
+            style: _mapStyle,
             onMapCreated: (c) {
               if (!_mapController.isCompleted) _mapController.complete(c);
               // zoom animado para a localização assim que o mapa estiver pronto
