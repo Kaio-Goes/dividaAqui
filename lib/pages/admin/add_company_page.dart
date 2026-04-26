@@ -20,9 +20,28 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
   final _service = CompanyService();
   bool _saving = false;
 
+  static const _sectors = [
+    'Agronegócio',
+    'Alimentação e Bebidas',
+    'Comércio',
+    'Construção Civil',
+    'Educação',
+    'Energia',
+    'Indústria',
+    'Imobiliário',
+    'Mineração',
+    'Saúde',
+    'Serviços Financeiros',
+    'Tecnologia',
+    'Telecomunicações',
+    'Transporte e Logística',
+    'Varejo',
+    'Outros',
+  ];
+
   late final TextEditingController _nameCtrl;
   late final TextEditingController _cnpjCtrl;
-  late final TextEditingController _sectorCtrl;
+  String? _selectedSector;
   late final TextEditingController _latCtrl;
   late final TextEditingController _lngCtrl;
   late final TextEditingController _scoreCtrl;
@@ -38,7 +57,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
     _nameCtrl = TextEditingController(text: c?.name ?? '');
     _cnpjCtrl = TextEditingController(
         text: c != null ? _CnpjInputFormatter.applyMask(c.cnpj) : '');
-    _sectorCtrl = TextEditingController(text: c?.sector ?? '');
+    _selectedSector = (c != null && _sectors.contains(c.sector)) ? c.sector : null;
     _latCtrl = TextEditingController(text: c?.lat.toString() ?? '');
     _lngCtrl = TextEditingController(text: c?.lng.toString() ?? '');
     _scoreCtrl = TextEditingController(text: c?.score.toString() ?? '');
@@ -51,7 +70,6 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
   void dispose() {
     _nameCtrl.dispose();
     _cnpjCtrl.dispose();
-    _sectorCtrl.dispose();
     _latCtrl.dispose();
     _lngCtrl.dispose();
     _scoreCtrl.dispose();
@@ -79,7 +97,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
           widget.company!.copyWith(
             name: _nameCtrl.text.trim(),
             cnpj: cnpj,
-            sector: _sectorCtrl.text.trim(),
+            sector: _selectedSector ?? '',
             lat: lat,
             lng: lng,
             riskLevel: _riskLevel,
@@ -93,7 +111,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
             id: '',
             name: _nameCtrl.text.trim(),
             cnpj: cnpj,
-            sector: _sectorCtrl.text.trim(),
+            sector: _selectedSector ?? '',
             lat: lat,
             lng: lng,
             riskLevel: _riskLevel,
@@ -176,22 +194,7 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
                 },
               ),
               const SizedBox(height: 16),
-              _buildField(
-                controller: _sectorCtrl,
-                label: 'Setor de atuação',
-                hint: 'Ex: Tecnologia, Varejo, Saúde…',
-                icon: Icons.category_outlined,
-                autovalidate: true,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Informe o setor de atuação';
-                  }
-                  if (v.trim().length < 2) {
-                    return 'Setor muito curto (mín. 2 caracteres)';
-                  }
-                  return null;
-                },
-              ),
+              _buildSectorDropdown(),
             ]),
 
             const SizedBox(height: 24),
@@ -406,6 +409,63 @@ class _AddCompanyPageState extends State<AddCompanyPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
       ),
+    );
+  }
+
+  Widget _buildSectorDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Setor de atuação',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF333333),
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedSector,
+          isExpanded: true,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          decoration: InputDecoration(
+            hintText: 'Selecione o setor',
+            hintStyle:
+                const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+            prefixIcon: const Icon(Icons.category_outlined,
+                color: Colors.grey, size: 20),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            filled: true,
+            fillColor: const Color(0xFFFAFAFA),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: appPrimary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.redAccent),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+          ),
+          style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
+          items: _sectors
+              .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+              .toList(),
+          onChanged: (v) => setState(() => _selectedSector = v),
+          validator: (v) =>
+              (v == null || v.isEmpty) ? 'Selecione o setor de atuação' : null,
+        ),
+      ],
     );
   }
 

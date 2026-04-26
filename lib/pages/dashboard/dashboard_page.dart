@@ -35,7 +35,17 @@ class _DashboardPageState extends State<DashboardPage>
     zoom: 4,
   );
   Set<Marker> _companyMarkers = {};
+  Set<Marker> _allMarkers = {};
   bool _mapLoading = false;
+  List<CompanyModel> _allCompanies = [];
+
+  // filtro de risco
+  int? _filterRisk;
+
+  // pesquisa flutuante
+  final _searchCtrl = TextEditingController();
+  String _searchText = '';
+  bool _showSuggestions = false;
 
   // Estilo do mapa: oculta labels/ícones de POIs do Google
   static const _mapStyle = '''[
@@ -62,6 +72,7 @@ class _DashboardPageState extends State<DashboardPage>
   @override
   void dispose() {
     _companiesSub?.cancel();
+    _searchCtrl.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -81,8 +92,63 @@ class _DashboardPageState extends State<DashboardPage>
           onTap: () => _showCompanyDetails(c),
         ));
       }
-      if (mounted) setState(() => _companyMarkers = newMarkers);
+      if (mounted) {
+        setState(() {
+          _allMarkers = newMarkers;
+          _allCompanies = companies;
+          _companyMarkers = _filterMarkers(newMarkers);
+        });
+      }
     });
+  }
+
+  Set<Marker> _filterMarkers(Set<Marker> source) {
+    if (_filterRisk == null) return source;
+    final ids = _allCompanies
+        .where((c) => c.riskLevel == _filterRisk)
+        .map((c) => 'company_${c.id}')
+        .toSet();
+    return source
+        .where((m) => ids.contains(m.markerId.value))
+        .toSet();
+  }
+
+  void _setRiskFilter(int? risk) {
+    setState(() {
+      _filterRisk = _filterRisk == risk ? null : risk;
+      _companyMarkers = _filterMarkers(_allMarkers);
+    });
+  }
+
+  List<CompanyModel> _searchResults() {
+    if (_searchText.isEmpty) return [];
+    final q = _searchText.toLowerCase();
+    final source =
+        _filterRisk == null ? _allCompanies : _allCompanies.where((c) => c.riskLevel == _filterRisk).toList();
+    return source
+        .where((c) =>
+            c.name.toLowerCase().contains(q) ||
+            c.cnpj.contains(q) ||
+            _formatCnpj(c.cnpj).contains(q))
+        .take(6)
+        .toList();
+  }
+
+  Future<void> _goToCompany(CompanyModel c) async {
+    _searchCtrl.clear();
+    setState(() {
+      _searchText = '';
+      _showSuggestions = false;
+    });
+    FocusScope.of(context).unfocus();
+    if (!_mapController.isCompleted) return;
+    final controller = await _mapController.future;
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: LatLng(c.lat, c.lng), zoom: 16),
+      ),
+    );
+    if (mounted) _showCompanyDetails(c);
   }
 
   Color _riskColor(int level) {
@@ -255,6 +321,16 @@ class _DashboardPageState extends State<DashboardPage>
                         style: const TextStyle(
                             color: Colors.grey, fontSize: 13),
                       ),
+                      if (c.cnpj.isNotEmpty) ...[  
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatCnpj(c.cnpj),
+                          style: const TextStyle(
+                              color: Color(0xFFAAAAAA),
+                              fontSize: 12,
+                              letterSpacing: 0.4),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -465,6 +541,48 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
+  Widget _riskChip({
+    required String label,
+    required int? value,
+    Color? color,
+  }) {
+    final selected = _filterRisk == value;
+    final chipColor = color ?? appPrimary;
+    return GestureDetector(
+      onTap: () => _setRiskFilter(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? chipColor
+              : Colors.white.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? chipColor : Colors.white,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : chipColor,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -528,6 +646,200 @@ class _DashboardPageState extends State<DashboardPage>
               if (_locationGranted == true) _goToCurrentPosition();
             },
           ),
+          // ── Barra de pesquisa flutuante ─────────────────────────────
+          Positioned(
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // campo de busca
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.93),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() {
+                      _searchText = v.toLowerCase();
+                      _showSuggestions = v.isNotEmpty;
+                    }),
+                    onTap: () {
+                      if (_searchText.isNotEmpty) {
+                        setState(() => _showSuggestions = true);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Buscar empresa ou CNPJ…',
+                      hintStyle: const TextStyle(
+                          color: Color(0xFFAAAAAA), fontSize: 14),
+                      prefixIcon: const Icon(Icons.search,
+                          color: appPrimary, size: 22),
+                      suffixIcon: _searchText.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close,
+                                  color: Colors.grey, size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() {
+                                  _searchText = '';
+                                  _showSuggestions = false;
+                                });
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 13, horizontal: 4),
+                    ),
+                  ),
+                ),
+
+                // sugestões
+                if (_showSuggestions)
+                  Builder(builder: (context) {
+                    final results = _searchResults();
+                    if (results.isEmpty) return const SizedBox.shrink();
+                    return Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        itemCount: results.length,
+                        separatorBuilder: (_, __) => const Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: Color(0xFFEEEEEE)),
+                        itemBuilder: (context, i) {
+                          final c = results[i];
+                          final color = _riskColor(c.riskLevel);
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _goToCompany(c),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          color.withValues(alpha: 0.12),
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: color.withValues(
+                                              alpha: 0.3)),
+                                    ),
+                                    child: Icon(Icons.business_rounded,
+                                        color: color, size: 18),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (c.cnpj.isNotEmpty)
+                                          Text(
+                                            _formatCnpj(c.cnpj),
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF888888)),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.12),
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: color, width: 0.8),
+                                    ),
+                                    child: Text(
+                                      c.riskLabel,
+                                      style: TextStyle(
+                                          color: color,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+
+          // ── Chips de filtro de risco ────────────────────────────────
+          Positioned(
+            bottom: 24,
+            left: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _riskChip(label: 'Todos', value: null),
+                const SizedBox(height: 6),
+                _riskChip(
+                    label: 'Baixo',
+                    value: 1,
+                    color: const Color(0xFF4CAF50)),
+                const SizedBox(height: 6),
+                _riskChip(
+                    label: 'Médio',
+                    value: 2,
+                    color: const Color(0xFFFF9800)),
+                const SizedBox(height: 6),
+                _riskChip(
+                    label: 'Alto',
+                    value: 3,
+                    color: const Color(0xFFF44336)),
+              ],
+            ),
+          ),
+
           if (_mapLoading)
             Center(
               child: Container(
