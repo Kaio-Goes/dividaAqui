@@ -6,6 +6,7 @@ import 'package:divida_aqui/core/auth_service.dart';
 import 'package:divida_aqui/core/company_model.dart';
 import 'package:divida_aqui/core/company_service.dart';
 import 'package:divida_aqui/core/user_model.dart';
+import 'package:divida_aqui/core/report_service.dart';
 import 'package:divida_aqui/pages/admin/admin_companies_page.dart';
 import 'package:divida_aqui/pages/admin/admin_users_page.dart';
 import 'package:divida_aqui/pages/auth/login_page.dart';
@@ -503,6 +504,48 @@ class _DashboardPageState extends State<DashboardPage>
     if (mounted) setState(() => _currentUser = user);
   }
 
+  List<CompanyModel> _filteredCompanies() {
+    var companies = _allCompanies;
+    if (_filterRisk != null) {
+      companies = companies.where((c) => c.riskLevel == _filterRisk).toList();
+    }
+    if (_filterSector != null) {
+      companies = companies.where((c) => c.sector == _filterSector).toList();
+    }
+    return companies;
+  }
+
+  Future<void> _exportReport() async {
+    final companies = _filteredCompanies();
+    if (companies.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nenhuma empresa para exportar com os filtros atuais.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    try {
+      await ReportService.exportAndShare(
+        companies: companies,
+        analystName: _currentUser?.name ?? 'Analista',
+        filterRisk: _filterRisk,
+        filterSector: _filterSector,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao gerar relatório: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _navigateToProfile() {
     if (_currentUser == null) return;
     if (_currentUser!.role == 0) {
@@ -725,6 +768,11 @@ class _DashboardPageState extends State<DashboardPage>
             icon: const Icon(Icons.person_outline),
             tooltip: 'Perfil',
             onPressed: _navigateToProfile,
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Exportar Relatório PDF',
+            onPressed: _exportReport,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
